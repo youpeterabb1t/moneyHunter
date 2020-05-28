@@ -4,16 +4,18 @@ from evsim.system_message import SysMessage
 from evsim.definition import *
 
 #CONFIG LOAD
-from config import *
-from instance.config import * #인스턴스로 덮어쓰기
+from api.config import *
+from api.instance.config import * #인스턴스로 덮어쓰기
 #email module
-from e_mail import send_async_email
+
+from api.e_mail import send_async_email
 #google sheet
 import pygsheets
 gc = pygsheets.authorize(service_file=GOOGLE_SERVICE_KEY)
 sh = gc.open(GOOGLE_SPREADSHEET_NAME)
 
 #parsing
+import os#
 import http
 import urllib.request
 from urllib.parse import quote
@@ -47,16 +49,21 @@ class Crawler(BehaviorModelExecutor):
 					response_body = response.read()
 				except (http.client.IncompleteRead) as e:
 					response_body = e.partial
+				try:			
+					parse = json.loads(response_body)
+					for ret in parse['list']:
+						values = list(ret.values())
+						wks = sh.worksheet('title', GOOGLE_WORKSHEET)
+						wks.insert_rows(row=1, values=values)
+					if int(values[15])>=2 or int(values[19]) >=2: #보통알림     #이부분 다른 모델로 사용가능
+						send_async_email.delay("peterscience@naver.com", "Current Air Stat", "email/inform", list=values[2:29])
+					elif int(values[15])>=3 or int(values[19]) >=3: #나쁨경고
+						send_async_email.delay("peterscience@naver.com", "Current Air Stat", "email/warning", list=values[2:29])
+				except:
+					send_async_email("peterscience@naver.com", "Service Unavailable", "email/stoped")	
 
-				parse = json.loads(response_body)
-				for ret in parse['list']:
-					values = list(ret.values())
-					wks = sh.worksheet('title', GOOGLE_WORKSHEET)
-					wks.insert_rows(row=1, values=values)
-				if int(values[15])>=2 or int(values[19]) >=2: #보통알림     #이부분 다른 모델로 사용가능
-					send_async_email("peterscience@naver.com", "Current Air Stat", "inform", list=values[2:29])
-				elif int(values[15])>=3 or int(values[19]) >=3: #나쁨경고
-					send_async_email("peterscience@naver.com", "Current Air Stat", "warning", list=values[2:29])
+				
+				
 
 			else:
 				print("Error Code:" + rescode)

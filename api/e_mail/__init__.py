@@ -1,20 +1,13 @@
-import contexts,os
-dir=os.path.abspath(os.path.dirname(__file__))
-from instance.config import *
-#flask
+import os
+import api.e_mail.contexts
+#config load
+import api.config
+from api.instance.config import *
+#celery
+from celery_init import celery,app,mail
 from flask import Flask,render_template
 from flask_mail import Mail, Message
 
-app = Flask(__name__)
-app.config.from_object('config')
-app.config.from_pyfile('../instance/config.py')
-mail = Mail(app)
-
-#celery
-from celery import Celery
-from config import *
-celery = Celery(app.import_name ,broker=app.config['CELERY_BROKER_URL'])
-celery.conf.update(app.config)
 
 @celery.task
 def send_async_email(to, subject, template, **kwargs):
